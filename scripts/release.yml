@@ -1,0 +1,76 @@
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - { goos: darwin, goarch: arm64 }
+          - { goos: darwin, goarch: amd64 }
+          - { goos: windows, goarch: amd64 }
+          - { goos: linux, goarch: amd64 }
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "stable"
+
+      - name: Build
+        shell: bash
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          VER="${GITHUB_REF_NAME#refs/tags/}"
+          [ "$VER" = "refs/heads/main" ] && VER="dev" || true
+          OUT="lanshare"
+          [ "$GOOS" = "windows" ] && OUT="lanshare.exe"
+          mkdir -p dist
+          go build -trimpath -ldflags "-s -w -X main.version=${VER}" -o "dist/$OUT" .
+
+      - name: Package
+        shell: bash
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          VER="${GITHUB_REF_NAME#refs/tags/}"
+          [ -z "$VER" ] || [ "$VER" = "refs/heads/main" ] && VER="dev" || true
+          cd dist
+          if [ "$GOOS" = "windows" ]; then
+            zip -q "lanshare-$VER-$GOOS-$GOARCH.zip" lanshare.exe
+            rm lanshare.exe
+          else
+            tar czf "lanshare-$VER-$GOOS-$GOARCH.tar.gz" lanshare
+            rm lanshare
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/*
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          path: dist
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
