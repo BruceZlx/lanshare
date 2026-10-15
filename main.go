@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"embed"
 	"errors"
@@ -27,23 +28,36 @@ var webFS embed.FS
 func main() {
 	log.SetFlags(log.Ltime)
 
-	if len(os.Args) > 1 && os.Args[1] == "send" {
-		if err := cliSend(os.Args[2:]); err != nil {
-			log.Fatalf("发送失败: %v", err)
+	args := os.Args[1:]
+	mode := "" // web | term
+	if len(args) > 0 {
+		switch args[0] {
+		case "send":
+			if err := cliSend(args[1:]); err != nil {
+				log.Fatalf("发送失败: %v", err)
+			}
+			return
+		case "web":
+			mode, args = "web", args[1:]
+		case "term", "cli":
+			mode, args = "term", args[1:]
 		}
-		return
 	}
 
-	port := flag.Int("port", 0, "HTTP 监听端口（默认读配置，首次为 8612）")
-	name := flag.String("name", "", "本机显示名称")
-	dir := flag.String("dir", "", "接收文件的保存目录")
-	noBrowser := flag.Bool("no-browser", false, "启动后不自动打开浏览器")
-	showVersion := flag.Bool("version", false, "显示版本号")
-	flag.Parse()
+	fs := flag.NewFlagSet("lanshare", flag.ExitOnError)
+	port := fs.Int("port", 0, "HTTP 监听端口（默认读配置，首次为 8612）")
+	name := fs.String("name", "", "本机显示名称")
+	dir := fs.String("dir", "", "接收文件的保存目录")
+	noBrowser := fs.Bool("no-browser", false, "启动后不自动打开浏览器")
+	showVersion := fs.Bool("version", false, "显示版本号")
+	_ = fs.Parse(args)
 
 	if *showVersion {
 		fmt.Println("lanshare", version)
 		return
+	}
+	if mode == "" {
+		mode = askMode()
 	}
 
 	cfg, err := loadConfig()
@@ -87,11 +101,11 @@ func main() {
 
 	url := fmt.Sprintf("http://127.0.0.1:%d", realPort)
 	log.Printf("LanShare %s 已启动，设备名称「%s」", version, cfg.Name)
-	log.Printf("请在浏览器打开: %s", localURLs(cfg))
-	log.Printf("接收目录: %s", cfg.DownloadDir)
-
-	if !*noBrowser {
-		openBrowser(url)
+	if mode == "term" {
+		log.Printf("接收目录: %s", cfg.DownloadDir)
+	} else {
+		log.Printf("请在浏览器打开: %s", localURLs(cfg))
+		log.Printf("接收目录: %s", cfg.DownloadDir)
 	}
 
 	httpSrv := &http.Server{Handler: srv.handler()}
@@ -100,6 +114,23 @@ func main() {
 			log.Fatalf("HTTP 服务异常: %v", err)
 		}
 	}()
+
+	if mode == "term" {
+		sigTerm := make(chan os.Signal, 1)
+		signal.Notify(sigTerm, os.Interrupt, syscall.SIGTERM)
+		go func() {
+			<-sigTerm
+			fmt.Println("\n再见！")
+			os.Exit(0)
+		}()
+		runTerminalMode(srv)
+		fmt.Println("已退出")
+		return
+	}
+
+	if !*noBrowser {
+		openBrowser(url)
+	}
 
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
@@ -110,6 +141,27 @@ func main() {
 	_ = httpSrv.Shutdown(ctx2)
 	stopCtx()
 	srv.stop()
+}
+
+// askMode 在交互式终端里询问使用 Web 还是终端模式；非终端环境默认 Web。
+func askMode() string {
+	st, err := os.Stdin.Stat()
+	if err != nil || st.Mode()&os.ModeCharDevice == 0 {
+		return "web"
+	}
+	fmt.Println("LanShare · 局域网互传")
+	fmt.Println()
+	fmt.Println("  [1] Web 页面 —— 浏览器拖拽传输（回车默认）")
+	fmt.Println("  [2] 终端模式 —— 在当前终端直接收发文件")
+	fmt.Print("\n请选择 [1/2]: ")
+	r := bufio.NewReader(os.Stdin)
+	line, _ := r.ReadString('\n')
+	switch strings.ToLower(strings.TrimSpace(line)) {
+	case "2", "2.", "term", "terminal", "t":
+		return "term"
+	default:
+		return "web"
+	}
 }
 
 func listenOn(preferred int) (net.Listener, int, error) {

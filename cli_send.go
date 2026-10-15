@@ -20,35 +20,25 @@ import (
 	"github.com/grandcat/zeroconf"
 )
 
-// cliSend 提供 `lanshare send -to <名称|IP[:端口]> 文件...` 的命令行发送能力。
-func cliSend(args []string) error {
-	fl := flag.NewFlagSet("send", flag.ExitOnError)
-	to := fl.String("to", "", "目标设备：设备名称 或 IP[:端口]（端口默认 8612）")
-	wait := fl.Int("wait", 90, "等待对方确认的最长秒数")
-	fl.Usage = func() {
-		fmt.Fprintf(fl.Output(), "用法: lanshare send -to <名称|IP[:端口]> 文件/文件夹...\n\n参数:\n")
-		fl.PrintDefaults()
-	}
-	if err := fl.Parse(args); err != nil {
-		return err
-	}
-	files := fl.Args()
-	if *to == "" || len(files) == 0 {
-		fl.Usage()
-		return errors.New("缺少 -to 或文件参数")
-	}
+// sendFile 是一个待发送文件：磁盘路径 + 传输时使用的相对路径。
+type sendFile struct {
+	path string
+	rel  string
+	size int64
+}
 
-	type sendFile struct {
-		path string
-		rel  string
-		size int64
-	}
+// collectSendFiles 展开路径列表（支持文件夹与 ~ 前缀），返回待发文件与总大小。
+func collectSendFiles(paths []string) ([]sendFile, int64, error) {
+	home, _ := os.UserHomeDir()
 	var list []sendFile
 	var total int64
-	for _, p := range files {
+	for _, p := range paths {
+		if home != "" && strings.HasPrefix(p, "~") {
+			p = filepath.Join(home, strings.TrimPrefix(p, "~"))
+		}
 		st, err := os.Stat(p)
 		if err != nil {
-			return err
+			return nil, 0, err
 		}
 		if st.IsDir() {
 			root := filepath.Dir(p)
@@ -72,7 +62,7 @@ func cliSend(args []string) error {
 				return nil
 			})
 			if err != nil {
-				return err
+				return nil, 0, err
 			}
 		} else {
 			list = append(list, sendFile{path: p, rel: st.Name(), size: st.Size()})
@@ -80,7 +70,32 @@ func cliSend(args []string) error {
 		}
 	}
 	if len(list) == 0 {
-		return errors.New("没有可发送的文件")
+		return nil, 0, errors.New("没有可发送的文件")
+	}
+	return list, total, nil
+}
+
+// cliSend 提供 `lanshare send -to <名称|IP[:端口]> 文件...` 的命令行发送能力。
+func cliSend(args []string) error {
+	fl := flag.NewFlagSet("send", flag.ExitOnError)
+	to := fl.String("to", "", "目标设备：设备名称 或 IP[:端口]（端口默认 8612）")
+	wait := fl.Int("wait", 90, "等待对方确认的最长秒数")
+	fl.Usage = func() {
+		fmt.Fprintf(fl.Output(), "用法: lanshare send -to <名称|IP[:端口]> 文件/文件夹...\n\n参数:\n")
+		fl.PrintDefaults()
+	}
+	if err := fl.Parse(args); err != nil {
+		return err
+	}
+	files := fl.Args()
+	if *to == "" || len(files) == 0 {
+		fl.Usage()
+		return errors.New("缺少 -to 或文件参数")
+	}
+
+	list, total, err := collectSendFiles(files)
+	if err != nil {
+		return err
 	}
 
 	base, peerName, err := resolveTarget(*to, 30*time.Second)
