@@ -18,7 +18,32 @@
 
 ## 快速开始
 
-### 1. 下载运行（推荐）
+### 1. 一键安装（推荐）
+
+自动下载最新版、安装到本地并配置好 PATH，装完直接敲 `lanshare` 即可使用：
+
+**macOS / Linux**（Terminal 里执行）：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/BruceZlx/lanshare/main/install.sh | bash
+```
+
+**Windows**（PowerShell 里执行）：
+
+```powershell
+irm https://raw.githubusercontent.com/BruceZlx/lanshare/main/install.ps1 | iex
+```
+
+安装明细：
+
+| | 安装位置 | PATH 配置 |
+|---|---|---|
+| macOS / Linux | `~/.local/bin/lanshare` | 自动写入 `.zshrc` / `.bashrc` / `.profile` |
+| Windows | `%LOCALAPPDATA%\LanShare\lanshare.exe` | 自动写入用户 PATH（注册表） |
+
+安装完成后**新开一个终端窗口**，运行 `lanshare` 即可（macOS 上脚本已自动解除 quarantine，不会再被 Gatekeeper 拦截）。
+
+### 2. 手动下载运行
 
 到 [Releases](https://github.com/BruceZlx/lanshare/releases/latest) 下载对应平台的压缩包：
 
@@ -28,6 +53,7 @@
 | Intel Mac | `lanshare-*-darwin-amd64.tar.gz` |
 | Windows 64 位 | `lanshare-*-windows-amd64.zip` |
 | Linux 64 位 | `lanshare-*-linux-amd64.tar.gz` |
+| Linux ARM64（树莓派等） | `lanshare-*-linux-arm64.tar.gz` |
 
 解压后运行 `lanshare`（Windows 为 `lanshare.exe`），会自动打开浏览器进入传输页面。
 
@@ -35,7 +61,7 @@
 > `xattr -d com.apple.quarantine lanshare` 后再运行。
 > **Windows 首次运行**：Windows 防火墙弹窗请勾选"专用网络"并允许访问。
 
-### 2. 用 Go 自行编译
+### 3. 用 Go 自行编译
 
 ```bash
 go install github.com/BruceZlx/lanshare@latest
@@ -150,13 +176,10 @@ LanShare 是设备间点对点直传，没有中转服务器，速度上限就�
 
 ## 开发与发布
 
-本地交叉编译所有平台：
+本地交叉编译所有平台（产物在 `dist/`）：
 
 ```bash
-GOOS=darwin  GOARCH=arm64 go build -trimpath -ldflags "-s -w -X main.version=v1.0.0" -o dist/lanshare .
-GOOS=darwin  GOARCH=amd64 go build -trimpath -ldflags "-s -w -X main.version=v1.0.0" -o dist/lanshare .
-GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w -X main.version=v1.0.0" -o dist/lanshare.exe .
-GOOS=linux   GOARCH=amd64 go build -trimpath -ldflags "-s -w -X main.version=v1.0.0" -o dist/lanshare .
+scripts/build-release.sh v1.x.x
 ```
 
 打 tag 发布：`git tag v1.x.x && git push origin v1.x.x`。
