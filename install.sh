@@ -29,8 +29,13 @@ case "$OS-$MACH" in
 esac
 say "检测到平台: $PLATFORM"
 
-# ---------- 解析最新版本（跟随 releases/latest 跳转，不依赖 API 限额） ----------
-VER="$(curl -fsSLI -o /dev/null -w '%{url_effective}' "https://github.com/$REPO/releases/latest" | sed 's|.*/tag/||')"
+# ---------- 解析最新版本 ----------
+# 优先走 API（实时）；限流时回退到 releases/latest 跳转（可能有 CDN 缓存延迟）
+VER="$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" 2>/dev/null \
+  | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -1 || true)"
+if [ -z "$VER" ]; then
+  VER="$(curl -fsSLI -o /dev/null -w '%{url_effective}' "https://github.com/$REPO/releases/latest" | sed 's|.*/tag/||')"
+fi
 case "$VER" in
   v*.*) ;;
   *) die "解析最新版本号失败: ${VER:-空}" ;;
