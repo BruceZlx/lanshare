@@ -22,6 +22,10 @@ import (
 
 var version = "dev"
 
+// buildMode 在构建期通过 -X main.buildMode=term|web 注入，
+// 生成免询问的独立变体（lanshare-term / lanshare-web）；默认空 = 启动时询问。
+var buildMode = ""
+
 //go:embed web
 var webFS embed.FS
 
@@ -57,7 +61,12 @@ func main() {
 		return
 	}
 	if mode == "" {
-		mode = askMode()
+		switch buildMode {
+		case "term", "web":
+			mode = buildMode
+		default:
+			mode = askMode()
+		}
 	}
 
 	cfg, err := loadConfig()

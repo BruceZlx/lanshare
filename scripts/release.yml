@@ -34,10 +34,11 @@ jobs:
         run: |
           VER="${GITHUB_REF_NAME#refs/tags/}"
           [ "$VER" = "refs/heads/main" ] && VER="dev" || true
-          OUT="lanshare"
-          [ "$GOOS" = "windows" ] && OUT="lanshare.exe"
           mkdir -p dist
-          go build -trimpath -ldflags "-s -w -X main.version=${VER}" -o "dist/$OUT" .
+          if [ "$GOOS" = "windows" ]; then EXT=".exe"; else EXT=""; fi
+          go build -trimpath -ldflags "-s -w -X main.version=${VER}" -o "dist/lanshare$EXT" .
+          go build -trimpath -ldflags "-s -w -X main.version=${VER} -X main.buildMode=term" -o "dist/lanshare-term$EXT" .
+          go build -trimpath -ldflags "-s -w -X main.version=${VER} -X main.buildMode=web" -o "dist/lanshare-web$EXT" .
 
       - name: Package
         shell: bash
@@ -49,11 +50,11 @@ jobs:
           [ -z "$VER" ] || [ "$VER" = "refs/heads/main" ] && VER="dev" || true
           cd dist
           if [ "$GOOS" = "windows" ]; then
-            zip -q "lanshare-$VER-$GOOS-$GOARCH.zip" lanshare.exe
-            rm lanshare.exe
+            zip -q "lanshare-$VER-$GOOS-$GOARCH.zip" lanshare.exe lanshare-term.exe lanshare-web.exe
+            rm lanshare.exe lanshare-term.exe lanshare-web.exe
           else
-            tar czf "lanshare-$VER-$GOOS-$GOARCH.tar.gz" lanshare
-            rm lanshare
+            tar czf "lanshare-$VER-$GOOS-$GOARCH.tar.gz" lanshare lanshare-term lanshare-web
+            rm lanshare lanshare-term lanshare-web
           fi
 
       - uses: actions/upload-artifact@v4

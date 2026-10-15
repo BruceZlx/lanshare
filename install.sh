@@ -54,13 +54,16 @@ tar -xzf "$TMP/$ASSET" -C "$TMP"
 # ---------- 安装 ----------
 BIN_DIR="${LANSHARE_BIN_DIR:-$HOME/.local/bin}"
 mkdir -p "$BIN_DIR"
-mv -f "$TMP/lanshare" "$BIN_DIR/lanshare"
-chmod +x "$BIN_DIR/lanshare"
-
-# macOS: 移除下载隔离属性，避免 Gatekeeper 拦截
-if [ "$OS" = "darwin" ]; then
-  xattr -d com.apple.quarantine "$BIN_DIR/lanshare" 2>/dev/null || true
-fi
+for bin in lanshare lanshare-term lanshare-web; do
+  if [ -f "$TMP/$bin" ]; then
+    mv -f "$TMP/$bin" "$BIN_DIR/$bin"
+    chmod +x "$BIN_DIR/$bin"
+    # macOS: 移除下载隔离属性，避免 Gatekeeper 拦截
+    if [ "$OS" = darwin ]; then
+      xattr -d com.apple.quarantine "$BIN_DIR/$bin" 2>/dev/null || true
+    fi
+  fi
+done
 
 # ---------- 配置 PATH ----------
 if [ -z "${LANSHARE_NO_PATH:-}" ]; then
@@ -93,14 +96,14 @@ fi
 # ---------- 验证 ----------
 V="$("$BIN_DIR/lanshare" -version 2>/dev/null || echo 未知)"
 say "安装完成: $BIN_DIR/lanshare ($V)"
-cat <<'EOF'
+cat <<EOF
 
-现在可以直接使用（若提示命令不存在，请新开一个终端窗口）:
+已安装三个命令（若提示命令不存在，请新开一个终端窗口）:
 
   lanshare          启动（交互选择 Web / 终端模式）
-  lanshare term     直接进入终端模式
-  lanshare web      直接进入 Web 模式
+  lanshare-term     启动即进终端模式（免询问）
+  lanshare-web      启动即进 Web 模式（免询问，自动开浏览器）
   lanshare send -to <设备名|IP[:端口]> 文件...   一次性发送
 
-卸载: 删除 ~/.local/bin/lanshare 并移除 shell 配置里的对应 PATH 行。
+卸载: 删除 $BIN_DIR/lanshare* 并移除 shell 配置里的对应 PATH 行。
 EOF

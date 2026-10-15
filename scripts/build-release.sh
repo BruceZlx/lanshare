@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 # 本地构建所有平台并打包到 dist/（发布 Release 用）
-# 用法: scripts/build-release.sh <版本号>   例如: scripts/build-release.sh v1.2.0
+# 每个平台的压缩包含三个可执行文件：
+#   lanshare       启动时询问 Web / 终端模式
+#   lanshare-term  启动即进终端模式（免询问）
+#   lanshare-web   启动即进 Web 模式（免询问，自动开浏览器）
+# 用法: scripts/build-release.sh <版本号>   例如: scripts/build-release.sh v1.3.1
 set -euo pipefail
 
-VER="${1:?用法: scripts/build-release.sh <版本号，如 v1.2.0>}"
+VER="${1:?用法: scripts/build-release.sh <版本号，如 v1.3.1>}"
 cd "$(dirname "$0")/.."
 OUT="${2:-dist}"
 
@@ -15,6 +19,8 @@ PLATFORMS=(
   "linux/arm64"
 )
 
+VARIANTS=("" "-term" "-web")   # 后缀；空 = 交互询问版
+
 rm -rf "$OUT"
 mkdir -p "$OUT"
 
@@ -22,20 +28,22 @@ for p in "${PLATFORMS[@]}"; do
   GOOS="${p%/*}"
   GOARCH="${p#*/}"
   NAME="lanshare-$VER-$GOOS-$GOARCH"
-  mkdir -p "$OUT/$NAME"
+  STAGE="$OUT/$NAME"
+  mkdir -p "$STAGE"
+  if [ "$GOOS" = "windows" ]; then EXT=".exe"; else EXT=""; fi
+  for v in "${VARIANTS[@]}"; do
+    MODE=""; [ -n "$v" ] && MODE="${v#-}"
+    LDFLAGS="-s -w -X main.version=$VER"
+    [ -n "$MODE" ] && LDFLAGS="$LDFLAGS -X main.buildMode=$MODE"
+    echo "==> 构建 $NAME/lanshare$v"
+    GOOS=$GOOS GOARCH=$GOARCH go build -trimpath -ldflags "$LDFLAGS" -o "$STAGE/lanshare$v$EXT" .
+  done
   if [ "$GOOS" = "windows" ]; then
-    BIN="lanshare.exe"
+    (cd "$STAGE" && zip -q "../$NAME.zip" lanshare$EXT lanshare-term$EXT lanshare-web$EXT)
   else
-    BIN="lanshare"
+    (cd "$STAGE" && tar czf "../$NAME.tar.gz" lanshare lanshare-term lanshare-web)
   fi
-  echo "==> 构建 $NAME"
-  GOOS=$GOOS GOARCH=$GOARCH go build -trimpath -ldflags "-s -w -X main.version=$VER" -o "$OUT/$NAME/$BIN" .
-  if [ "$GOOS" = "windows" ]; then
-    (cd "$OUT/$NAME" && zip -q "../$NAME.zip" "$BIN")
-  else
-    (cd "$OUT/$NAME" && tar czf "../$NAME.tar.gz" "$BIN")
-  fi
-  rm -rf "$OUT/$NAME"
+  rm -rf "$STAGE"
 done
 
 echo "==> 完成:"

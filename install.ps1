@@ -36,12 +36,19 @@ Expand-Archive -Path $zip -DestinationPath $tmp -Force
 
 $installDir = Join-Path $env:LOCALAPPDATA "LanShare"
 New-Item -ItemType Directory -Path $installDir -Force | Out-Null
-$exe = Join-Path $installDir "lanshare.exe"
-if (Test-Path $exe) {
-    try { Remove-Item $exe -Force -ErrorAction Stop }
-    catch { throw "无法覆盖 $exe（lanshare 可能正在运行），请先关闭后重试" }
+foreach ($name in @("lanshare.exe", "lanshare-term.exe", "lanshare-web.exe")) {
+    $src = Join-Path $tmp $name
+    if (Test-Path $src) {
+        $dst = Join-Path $installDir $name
+        if (Test-Path $dst) {
+            try { Remove-Item $dst -Force -ErrorAction Stop }
+            catch { throw "无法覆盖 $dst（lanshare 可能正在运行），请先关闭后重试" }
+        }
+        Move-Item -Force $src $dst
+    }
 }
-Move-Item -Force (Join-Path $tmp "lanshare.exe") $exe
+$exe = Join-Path $installDir "lanshare.exe"
+if (-not (Test-Path $exe)) { throw "解压后没有找到 lanshare.exe" }
 
 # 写入用户 PATH（新开终端生效）
 $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
@@ -59,8 +66,8 @@ Say "安装完成: $(& $exe -version)"
 Write-Host ""
 Write-Host "现在可以直接使用（建议新开一个终端窗口）:" -ForegroundColor Yellow
 Write-Host "  lanshare          启动（交互选择 Web / 终端模式）"
-Write-Host "  lanshare term     直接进入终端模式"
-Write-Host "  lanshare web      直接进入 Web 模式"
+Write-Host "  lanshare-term     启动即进终端模式（免询问）"
+Write-Host "  lanshare-web      启动即进 Web 模式（免询问，自动开浏览器）"
 Write-Host "  lanshare send -to <设备名|IP[:端口]> 文件...   一次性发送"
 Write-Host ""
 Write-Host "卸载: 删除 $installDir 并从用户 PATH 中移除该目录。"
