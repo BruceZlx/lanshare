@@ -1,7 +1,7 @@
 # LanShare · 局域网互传
 
-[![Release](https://img.shields.io/github/v/release/zzzhhhhhgame-cmd/lanshare?label=%E4%B8%8B%E8%BD%BD&color=4f8cff)](https://github.com/zzzhhhhhgame-cmd/lanshare/releases/latest)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-8b5cf6)](https://github.com/zzzhhhhhgame-cmd/lanshare/releases)
+[![Release](https://img.shields.io/github/v/release/BruceZlx/lanshare?label=%E4%B8%8B%E8%BD%BD&color=4f8cff)](https://github.com/BruceZlx/lanshare/releases/latest)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-8b5cf6)](https://github.com/BruceZlx/lanshare/releases)
 
 **LanShare** 是一个纯局域网（LAN）点对点文件互传工具，专为 Windows / macOS 双持或多设备用户设计：
 同一 Wi-Fi / 网线下的设备**自动互相发现**，网页里拖入文件即可秒传到另一台设备，**不经过任何云服务器、不上传互联网**。
@@ -20,7 +20,7 @@
 
 ### 1. 下载运行（推荐）
 
-到 [Releases](https://github.com/zzzhhhhhgame-cmd/lanshare/releases/latest) 下载对应平台的压缩包：
+到 [Releases](https://github.com/BruceZlx/lanshare/releases/latest) 下载对应平台的压缩包：
 
 | 平台 | 文件 |
 |---|---|
@@ -38,14 +38,14 @@
 ### 2. 用 Go 自行编译
 
 ```bash
-go install github.com/zzzhhhhhgame-cmd/lanshare@latest
+go install github.com/BruceZlx/lanshare@latest
 lanshare
 ```
 
 或从源码构建：
 
 ```bash
-git clone https://github.com/zzzhhhhhgame-cmd/lanshare.git
+git clone https://github.com/BruceZlx/lanshare.git
 cd lanshare
 go build -o lanshare .
 ```

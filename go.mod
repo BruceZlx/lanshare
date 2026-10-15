@@ -1,4 +1,4 @@
-module github.com/zzzhhhhhgame-cmd/lanshare
+module github.com/BruceZlx/lanshare
 
 go 1.26.0
 
